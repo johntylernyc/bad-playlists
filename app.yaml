@@ -1,8 +1,0 @@
-runtime: python38
-instance_class: F2
-entrypoint: gunicorn -b :8080 main:app  # replace "app:app" with "<your_python_file_without_extension>:app"
-
-env_variables:
-  SPOTIPY_CLIENT_ID: '03a13ed5d2984a57828ef8ed7d81e8fb'
-  SPOTIPY_CLIENT_SECRET: '9ed88f5e03a347ba982d52c8309f6b31'
-  SPOTIPY_REDIRECT_URI: 'https://bad-playlists.uc.r.appspot.com/callback'
