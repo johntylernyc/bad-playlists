@@ -159,5 +159,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# secrets and other sensitive variables
+# custom ignores
 credentials.py
+app.yaml
+.flask_session
+.idea
