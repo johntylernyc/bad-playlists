@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Current User Information{% endblock %}
+
+{% block content %}
+    <h3>User Information:</h3>
+    <p><strong>Name:</strong> {{ display_name }}</p>
+    <p><strong>Country:</strong> {{ country }}</p>
+    <p><strong>Followers:</strong> {{ followers_count }}</p>
+    <p><strong>Email:</strong> {{ email }}</p>
+    <p><strong>Account Type:</strong> {{ product }}</p>
+    <p><strong>Profile:</strong> <a href="{{ external_url }}" target="_blank">Open in Spotify</a></p>
+{% endblock %}

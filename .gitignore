@@ -160,8 +160,8 @@ cython_debug/
 #.idea/
 
 # custom ignores
-credentials.py
 app.yaml
 .flask_session
 .idea
 .DS_Store
+bad-playlists-13327cf912a8.json

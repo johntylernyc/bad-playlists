@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Your Playlists</h2>
+    <ul>
+        {% for playlist in playlists %}
+        <li>
+            <h3>{{ playlist.name }}</h3>
+            <img src="{{ playlist.image_url }}" alt="{{ playlist.name }}" width="100">
+            <p>Tracks: {{ playlist.num_tracks }}</p>
+            <p>Visibility: {{ 'Public' if playlist.public else 'Private' }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
