@@ -7,7 +7,8 @@ def generate_navigation(spotify):
         <a href="/currently_playing">currently playing</a> | 
         <a href="/current_user">me</a> | 
         <a href="/top_tracks">top tracks</a> | 
-        <a href="/top_artists">top artists</a>
+        <a href="/top_artists">top artists</a> |
+        <a href="/create_playlist">create missionary blend</a>
         <hr>
         <br>
     '''

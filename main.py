@@ -24,14 +24,15 @@ Run app.py
 """
 
 import os
-from flask import Flask, session, request, redirect, jsonify, render_template
+from flask import Flask, session, request, redirect, jsonify, render_template, flash
 from flask_session import Session
 import spotipy
 import urllib.parse
 from urllib.parse import urlparse
 from google.cloud import firestore
 from helper_functions import generate_navigation
-
+from random import sample
+import random
 
 app = Flask(__name__, template_folder='templates')
 SPOTIPY_CLIENT_ID = os.environ.get('SPOTIPY_CLIENT_ID')
@@ -47,13 +48,15 @@ encoded_redirect_uri = urllib.parse.quote(SPOTIPY_REDIRECT_URI)
 db = firestore.Client()
 scope = [
     'user-read-currently-playing',
-    'playlist-modify-private',
     'user-top-read',
     'app-remote-control',
     'user-modify-playback-state',
     'user-library-modify',
+    'user-library-read',
     'user-read-playback-state',
-    'user-modify-playback-state'
+    'user-modify-playback-state',
+    'playlist-modify-public',
+    'playlist-modify-private'
 ]
 
 
@@ -406,6 +409,122 @@ def save_top_artists():
     except Exception as e:
         return jsonify(success=False, message=str(e))
 
+
+@app.route('/create_playlist')
+def create_playlist():
+    cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        return redirect('/')
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
+
+    navigation = generate_navigation(spotify)
+
+    # 1. Identify who is logged in
+    user_data = spotify.current_user()
+    user_id = user_data['id']
+
+    # 2. Fetch the user's top tracks from Firestore
+    user_ref = db.collection('users').document(user_id)
+    top_artists_ref = user_ref.collection('user_favorites').document('top_artists')
+
+    top_artists_data = top_artists_ref.get().to_dict()['artists']
+
+    # Filter artists based on the range
+    short_term_artists = [artist for artist in top_artists_data if artist['range'] == 'short_term']
+    medium_term_artists = [artist for artist in top_artists_data if artist['range'] == 'medium_term']
+    long_term_artists = [artist for artist in top_artists_data if artist['range'] == 'long_term']
+
+    # Fetch a larger sample to have a buffer for replacements.
+    BUFFER_SIZE = 10
+    short_term_sample = sample(short_term_artists, min(BUFFER_SIZE, len(short_term_artists)))
+    medium_term_sample = sample(medium_term_artists, min(BUFFER_SIZE, len(medium_term_artists)))
+    long_term_sample = sample(long_term_artists, min(BUFFER_SIZE, len(long_term_artists)))
+
+    samples = {
+        'short_term': short_term_sample,
+        'medium_term': medium_term_sample,
+        'long_term': long_term_sample
+    }
+
+    seen = set()
+    unique_artists = []
+
+    # Helper function to add a unique artist from a term sample.
+    def add_unique_artist(term):
+        for artist in samples[term]:
+            if artist['id'] not in seen:
+                seen.add(artist['id'])
+                unique_artists.append(artist)
+                samples[term].remove(artist)
+                return True
+        return False
+
+    # Add unique artists until the list contains 5 from each term or the sample lists are exhausted.
+    for term in ['short_term', 'medium_term', 'long_term']:
+        count = 0
+        while count < 5 and samples[term]:
+            if add_unique_artist(term):
+                count += 1
+
+    # 3. Fetch top 10 tracks for each artist from Spotify
+    tracks = []
+    for artist in unique_artists:
+        artist_tracks = spotify.artist_top_tracks(artist['id'])
+        # 4. Randomly select 2 songs from the top tracks
+        selected_tracks = sample(artist_tracks['tracks'], 2)
+        tracks.extend(selected_tracks)
+
+    random.shuffle(tracks)
+
+    # 5. Render a template that shows all the tracks for user preview
+    return navigation + render_template('preview.html', tracks=tracks)
+
+
+@app.route('/save_playlist', methods=['POST'])
+def save_playlist():
+    try:
+        cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+        auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+        if not auth_manager.validate_token(cache_handler.get_cached_token()):
+            return redirect('/')
+        spotify = spotipy.Spotify(auth_manager=auth_manager)
+
+        # Extract track_ids from the POST request
+        track_ids = request.form['track_ids'].split(',')
+
+        user_data = spotify.current_user()
+
+        # Fetch the user's existing playlists
+        user_playlists = spotify.user_playlists(user_data['id'])['items']
+
+        # Check if "Your Missionary Blend" playlist already exists
+        playlist_id = None
+        for playlist in user_playlists:
+            if playlist['name'] == "Your Missionary Blend":
+                playlist_id = playlist['id']
+                break
+
+        # If playlist exists, overwrite its tracks. Otherwise, create a new playlist.
+        if playlist_id:
+            # Clear the existing tracks in the playlist
+            spotify.playlist_replace_items(playlist_id, [])
+            # Add new tracks to the playlist
+            spotify.playlist_add_items(playlist_id, track_ids)
+        else:
+            # Create a new playlist
+            playlist = spotify.user_playlist_create(user_data['id'], "Your Missionary Blend")
+            # Add tracks to the new playlist
+            spotify.playlist_add_items(playlist['id'], track_ids)
+
+        flash("Playlist saved successfully!")
+        return jsonify(success=True)
+    except Exception as e:
+        # Handle the exception and display a helpful message to the user
+        flash(str(e))
+        return jsonify(success=False, error=str(e))
+
+
 # Helper Functions for Playback Controls in Currently Playing
 @app.route('/play_track/<track_uri>', methods=['POST'])
 def play_track(track_uri):
@@ -420,7 +539,6 @@ def play_track(track_uri):
         return jsonify(success=True)
     except:
         return jsonify(success=False, message="Playback error.")
-
 
 '''
 Following lines allow application to be run more conveniently with

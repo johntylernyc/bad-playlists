@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <form id="savePlaylistForm" action="/save_playlist" method="post">
+    <input type="hidden" name="track_ids" value="{{ tracks|map(attribute='id')|join(',') }}">
+    <button type="submit">Save to Spotify</button>
+    </form>
+    <span id="saveMessage"></span>
+    <hr>
+    <h2>Your Missionary Blend</h2>
+    <ul>
+        {% for track in tracks %}
+        <li>
+            <p>{{ track['name'] }} - {{ track['artists'][0]['name'] }} | {{ track['album']['name'] }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('savePlaylistForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const button = document.querySelector('button[type="submit"]');
+                button.disabled = true;  // Disable the button
+
+                // Extract the track_ids from the form
+                const trackIds = this.elements.track_ids.value;
+
+                fetch('/save_playlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'track_ids=' + encodeURIComponent(trackIds)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('saveMessage').innerText = "Playlist saved to Spotify!";
+                    } else {
+                        button.disabled = false;
+                        document.getElementById('saveMessage').innerText = "Error saving playlist. Try again.";
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    button.disabled = false;
+                    document.getElementById('saveMessage').innerText = "Error saving playlist. Try again.";
+                });
+            });
+        });
+    </script>
+
+{% endblock %}
