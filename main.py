@@ -525,6 +525,72 @@ def save_playlist():
         return jsonify(success=False, error=str(e))
 
 
+@app.route('/find_users')
+def find_users():
+    # Spotify Authentication
+    cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        return redirect('/')
+    spotify = spotipy.Spotify(auth_manager=auth_manager)
+
+    user_favorites_ref = db.collection_group('user_favorites')
+    user_favorites = user_favorites_ref.stream()
+
+    seen_user_ids = set() # Track user IDs that have already been seen
+    user_data_list = []
+
+    def divide_by_range(items):
+        short_term = [item for item in items if item['range'] == 'short_term']
+        medium_term = [item for item in items if item['range'] == 'medium_term']
+        long_term = [item for item in items if item['range'] == 'long_term']
+        return short_term[:5], medium_term[:5], long_term[:5]
+
+    for user_favorite_doc in user_favorites:
+        user_id = user_favorite_doc.reference.parent.parent.id
+        if user_id not in seen_user_ids:
+            seen_user_ids.add(user_id)
+
+            # Fetch top artists document
+            top_artists_ref = db.document(f'users/{user_id}/user_favorites/top_artists')
+            top_artists_doc = top_artists_ref.get()
+            top_artists_data = top_artists_doc.to_dict() if top_artists_doc.exists else {}
+            top_artists = top_artists_data.get('artists', [])  # Assuming 'artists' is a list within the document
+
+            # Fetch top tracks document
+            top_tracks_ref = db.document(f'users/{user_id}/user_favorites/top_tracks')
+            top_tracks_doc = top_tracks_ref.get()
+            top_tracks_data = top_tracks_doc.to_dict() if top_tracks_doc.exists else {}
+            top_tracks = top_tracks_data.get('tracks', [])  # Assuming 'tracks' is a list within the document
+
+            short_term_artists, medium_term_artists, long_term_artists = divide_by_range(top_artists)
+            short_term_tracks, medium_term_tracks, long_term_tracks = divide_by_range(top_tracks)
+
+            # Append to user data list
+            spotify_user_info = spotify.user(user_id)
+            display_name = spotify_user_info['display_name']
+            user_data = {
+                'user_id': user_id,
+                'display_name': display_name,
+                'artists': {
+                    'short_term': short_term_artists,
+                    'medium_term': medium_term_artists,
+                    'long_term': long_term_artists,
+                },
+                'tracks': {
+                    'short_term': short_term_tracks,
+                    'medium_term': medium_term_tracks,
+                    'long_term': long_term_tracks,
+                }
+            }
+            user_data_list.append(user_data)
+
+    navigation = generate_navigation(spotify)
+
+    return navigation + render_template("find_users.html", users=user_data_list)
+
+
+
 # Helper Functions for Playback Controls in Currently Playing
 @app.route('/play_track/<track_uri>', methods=['POST'])
 def play_track(track_uri):

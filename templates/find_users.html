@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Find Users</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>User Display Name</th>
+                <th colspan="3">Top 5 Artists</th>
+                <th colspan="3">Top 5 Tracks</th>
+            </tr>
+            <tr>
+                <th></th>
+                <th>Short Term</th>
+                <th>Medium Term</th>
+                <th>Long Term</th>
+                <th>Short Term</th>
+                <th>Medium Term</th>
+                <th>Long Term</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.display_name }}</td>
+                <td>{{ user.artists.short_term|map(attribute='name')|list|join(', ') }}</td>
+                <td>{{ user.artists.medium_term|map(attribute='name')|list|join(', ') }}</td>
+                <td>{{ user.artists.long_term|map(attribute='name')|list|join(', ') }}</td>
+                <td>{{ user.tracks.short_term|map(attribute='name')|list|join(', ') }}</td>
+                <td>{{ user.tracks.medium_term|map(attribute='name')|list|join(', ') }}</td>
+                <td>{{ user.tracks.long_term|map(attribute='name')|list|join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
