@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Top Artists</h3>
+<form action="javascript:void(0);" method="post">
+    <input type="submit" id="save-button" value="Save Top Artists">
+    <span id="save-status"></span>
+</form>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    $("#save-button").click(function() {
+        // Disable the button and show "Saving..."
+        $("#save-button").prop("disabled", true);
+        $("#save-status").text("Saving...");
+
+        // Make an AJAX call to save the top artists
+        $.post("/save_top_artists", function(data) {
+            // When successful, show "Saved!"
+            if (data.success) {
+                $("#save-status").text("Saved!");
+            } else {
+                $("#save-status").text("Error: " + data.message);
+                $("#save-button").prop("disabled", false);
+            }
+        });
+    });
+});
+</script>
+
+{% for sp_range, artist_list in artists.items() %}
+    <h2>Range: {{ sp_range }}</h2>
+    <ul>
+        {% for artist in artist_list %}
+        <li>
+            {{ artist.name }}
+        </li>
+        {% endfor %}
+    </ul>
+{% endfor %}
+{% endblock %}
